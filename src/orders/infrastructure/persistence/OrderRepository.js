@@ -120,10 +120,16 @@ class OrderRepository extends IOrderRepository {
     // Add ordering
     query += ' ORDER BY created_at DESC';
 
-    // Add pagination
-    if (options.limit && options.offset !== undefined) {
-      query += ' LIMIT ? OFFSET ?';
-      params.push(options.limit, options.offset);
+    // Add pagination.
+    // Some MySQL/MariaDB setups fail when LIMIT/OFFSET are bound params
+    // in prepared statements (ER_WRONG_ARGUMENTS), so we inject sanitized ints.
+    if (options.limit !== undefined && options.offset !== undefined) {
+      const limit = Number.parseInt(options.limit, 10);
+      const offset = Number.parseInt(options.offset, 10);
+
+      const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
+      const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+      query += ` LIMIT ${safeLimit} OFFSET ${safeOffset}`;
     }
 
     // Get total count
